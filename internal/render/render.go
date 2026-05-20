@@ -2,6 +2,7 @@
 package render
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
 	"html/template"
@@ -10,6 +11,9 @@ import (
 	"time"
 
 	"github.com/lukasschwab/shelley-share/internal/store"
+	"github.com/microcosm-cc/bluemonday"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
 )
 
 // Scrubber is the subset of redact.Redactor that Build needs.
@@ -32,6 +36,27 @@ var funcs = template.FuncMap{
 	"shortTime":  func(t time.Time) string { return t.Format("2006-01-02 15:04 MST") },
 }
 
+// markdown is goldmark with GFM extensions (tables, strikethrough, autolinks,
+// task lists, fenced code).
+var markdown = goldmark.New(goldmark.WithExtensions(extension.GFM))
+
+// htmlPolicy is the sanitizer applied to goldmark's output before it reaches
+// the page. UGCPolicy allows common formatting (lists, code, links, tables)
+// while stripping <script>, inline event handlers, javascript: URLs, etc.
+var htmlPolicy = bluemonday.UGCPolicy()
+
+// RenderMarkdown converts a markdown string to sanitized HTML suitable for
+// embedding in the template via {{ . }} after `template.HTML` conversion.
+func renderMarkdown(s string) template.HTML {
+	var buf bytes.Buffer
+	if err := markdown.Convert([]byte(s), &buf); err != nil {
+		// On error, fall back to text/plain semantics.
+		return template.HTML(template.HTMLEscapeString(s))
+	}
+	clean := htmlPolicy.SanitizeBytes(buf.Bytes())
+	return template.HTML(clean)
+}
+
 func prettyJSON(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
@@ -49,13 +74,24 @@ func prettyJSON(raw json.RawMessage) string {
 
 // Block is a flattened, presentation-ready unit of a conversation.
 type Block struct {
-	Role     string // "user", "assistant", "thinking", "tool"
-	Text     string
-	ToolName string
-	ToolInput string // pretty-printed JSON
+	Role       string // "user", "assistant", "thinking", "tool"
+	HTML       template.HTML // rendered markdown (for user/assistant/thinking)
+	ToolName   string
+	ToolInput  string // pretty-printed JSON
 	ToolOutput string
 	ToolError  bool
-	Time     time.Time
+	Time       time.Time
+}
+
+// RoleLabel returns the uppercase label shown on a block. We rename
+// "assistant" to "SHELLEY" because that's what the user calls the agent.
+func (b Block) RoleLabel() string {
+	switch b.Role {
+	case "assistant":
+		return "SHELLEY"
+	default:
+		return strings.ToUpper(b.Role)
+	}
 }
 
 // Page is the top-level view model.
@@ -94,12 +130,12 @@ func Build(c *store.Conversation, msgs []store.RawMessage, r Scrubber) Page {
 				if m.Type == "user" {
 					role = "user"
 				}
-				p.Blocks = append(p.Blocks, Block{Role: role, Text: r.Scrub(part.Text), Time: m.CreatedAt})
+				p.Blocks = append(p.Blocks, Block{Role: role, HTML: renderMarkdown(r.Scrub(part.Text)), Time: m.CreatedAt})
 			case store.PartThinking:
 				if strings.TrimSpace(part.Thinking) == "" {
 					continue
 				}
-				p.Blocks = append(p.Blocks, Block{Role: "thinking", Text: r.Scrub(part.Thinking), Time: m.CreatedAt})
+				p.Blocks = append(p.Blocks, Block{Role: "thinking", HTML: renderMarkdown(r.Scrub(part.Thinking)), Time: m.CreatedAt})
 			case store.PartToolUse:
 				p.Blocks = append(p.Blocks, Block{
 					Role:      "tool",
