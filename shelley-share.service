@@ -1,0 +1,26 @@
+[Unit]
+Description=shelley-share (tsnet read-only Shelley conversation viewer)
+Documentation=https://github.com/lukasschwab/shelley-share
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=exedev
+Group=exedev
+ExecStart=/home/exedev/go/bin/shelley-share serve
+Restart=on-failure
+RestartSec=5s
+
+# Quality-of-life hardening. tsnet is userspace and runs as 'exedev', so it
+# doesn't need root or extra capabilities.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+# State (tsnet keys, base_url) and the Shelley DB live under /home/exedev.
+ReadWritePaths=/home/exedev/.config/shelley-share
+ReadOnlyPaths=/home/exedev/.config/shelley/shelley.db
+
+[Install]
+WantedBy=multi-user.target
