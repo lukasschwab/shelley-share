@@ -91,6 +91,19 @@ shelley-share link <conversation_id>     # print a shareable URL
 Find conversation ids with the Shelley CLI (`shelley client list`) or by
 querying `shelley.db` directly.
 
+## Shelley skill
+
+A Shelley skill is included so the agent can publish the current conversation
+and debug the service on your behalf. Symlink it into your Shelley skills
+directory:
+
+```sh
+ln -s ~/src/shelley-share/skill ~/.config/shelley/shelley-share
+```
+
+Then `shelley skill ls` should list `shelley-share`. Ask Shelley to "share this
+conversation" and it will run `shelley-share link "$SHELLEY_CONVERSATION_ID"`.
+
 ## Caveats
 
 - Anyone on your tailnet with a valid token can view that conversation. This
