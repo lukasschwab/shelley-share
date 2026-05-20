@@ -48,23 +48,22 @@ State (tsnet keys, the base URL hint, optional random secret) lives in
 `~/.config/shelley/shelley.db` by default; override with `-db` or
 `$SHELLEY_DB`.
 
-A reasonable systemd unit (see exe.dev's `<systemd>` guidance):
+A ready-to-use systemd unit is included as [`shelley-share.service`](./shelley-share.service):
 
-```ini
-[Unit]
-Description=shelley-share (tsnet read-only viewer)
-After=network-online.target
-Wants=network-online.target
+```sh
+go install github.com/lukasschwab/shelley-share@latest
+# First time only: register the tsnet node.
+TS_AUTHKEY=tskey-auth-... shelley-share serve   # Ctrl-C once it's up.
 
-[Service]
-User=exedev
-Environment=TS_AUTHKEY=tskey-auth-...
-ExecStart=/home/exedev/go/bin/shelley-share serve
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
+sudo cp shelley-share.service /etc/systemd/system/shelley-share.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now shelley-share
+journalctl -u shelley-share -f
 ```
+
+The unit runs as `exedev`, reuses the already-registered tsnet keys under
+`~/.config/shelley-share/tsnet/`, and applies light hardening
+(`PrivateTmp`, read-only home, narrow `ReadWritePaths`).
 
 ## Sharing a conversation
 
