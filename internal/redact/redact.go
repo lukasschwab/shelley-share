@@ -46,10 +46,16 @@ func Default() *Redactor {
 
 // Scrub returns s with any detected secrets replaced by Marker. If no secrets
 // are found, the original string is returned unchanged.
+//
+// Two passes run: first the Trufflehog detectors (high precision, low
+// recall), then a high-Shannon-entropy heuristic over long alphanumeric
+// tokens (lower precision, higher recall). The entropy pass catches opaque
+// API keys whose surrounding context doesn't include a vendor keyword.
 func (r *Redactor) Scrub(s string) string {
 	if r == nil || s == "" {
 		return s
 	}
+	s = scrubHighEntropy(s)
 	data := []byte(s)
 	matches := r.core.FindDetectorMatches(data)
 	if len(matches) == 0 {
