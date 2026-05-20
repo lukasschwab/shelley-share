@@ -19,7 +19,10 @@ header h1 { margin: 0 0 .25rem; font-size: 1.25rem; }
 header .meta { color: #888; font-size: .85rem; }
 .block { margin: 1rem 0; padding: .75rem 1rem; border-radius: 8px; }
 .block.user { background: #6cf2; border-left: 3px solid #69c; }
-.block.assistant { background: #fff1; border-left: 3px solid #8884; }
+.block.assistant { background: #fafafa; border-left: 3px solid #8884; }
+@media (prefers-color-scheme: dark) {
+  .block.assistant { background: #fff1; }
+}
 .block.thinking { background: #ffd96622; border-left: 3px solid #c93; color: #888; font-style: italic; }
 .block.tool { background: #0001; border: 1px solid #8884; font-family: ui-monospace, monospace; font-size: .85em; }
 @media (prefers-color-scheme: dark) {
