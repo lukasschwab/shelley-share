@@ -104,6 +104,43 @@ type Page struct {
 	Blocks  []Block
 }
 
+// Segment is either a single non-tool block or a run of consecutive tool
+// blocks. Templates iterate over Segments to render the conversation; client-
+// side JS uses ToolGroup runs to optionally collapse them.
+type Segment struct {
+	Block      *Block  // set when this is a single non-tool block
+	ToolBlocks []Block // set when this is a run of consecutive tool blocks
+}
+
+// IsToolGroup reports whether this segment is a run of consecutive tool calls.
+func (s Segment) IsToolGroup() bool { return len(s.ToolBlocks) > 0 }
+
+// Count is the number of tool calls in a tool group.
+func (s Segment) Count() int { return len(s.ToolBlocks) }
+
+// Segments returns p.Blocks grouped so that consecutive tool blocks are
+// collapsed into a single Segment.
+func (p Page) Segments() []Segment {
+	var out []Segment
+	i := 0
+	for i < len(p.Blocks) {
+		if p.Blocks[i].Role == "tool" {
+			j := i
+			for j < len(p.Blocks) && p.Blocks[j].Role == "tool" {
+				j++
+			}
+			run := append([]Block(nil), p.Blocks[i:j]...)
+			out = append(out, Segment{ToolBlocks: run})
+			i = j
+			continue
+		}
+		b := p.Blocks[i]
+		out = append(out, Segment{Block: &b})
+		i++
+	}
+	return out
+}
+
 // Build converts raw messages from the store into rendered blocks. If r is
 // nil, no redaction is performed.
 func Build(c *store.Conversation, msgs []store.RawMessage, r Scrubber) Page {
