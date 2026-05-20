@@ -16,7 +16,7 @@ func TestHandlerRejectsForgedToken(t *testing.T) {
 		t.Skipf("no shelley.db: %v", err)
 	}
 	defer st.Close()
-	h := buildHandler(Config{Secret: []byte("k"), Store: st})
+	h := buildHandler(Config{Secret: []byte("k"), Store: st, Scrubber: nil})
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/c/c2SEXJF.AAAAAAAAAAAAAAAA", nil))

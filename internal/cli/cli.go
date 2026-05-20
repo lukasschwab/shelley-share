@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/lukasschwab/shelley-share/internal/redact"
 	"github.com/lukasschwab/shelley-share/internal/server"
 	"github.com/lukasschwab/shelley-share/internal/share"
 	"github.com/lukasschwab/shelley-share/internal/store"
@@ -94,6 +95,7 @@ serve flags:
   -hostname name     tsnet node name (default "shelley-share")
   -ts-authkey key    Tailscale auth key on first start (or env TS_AUTHKEY)
   -base-url url      override stored base URL used by 'link'
+  -no-redact         disable best-effort secret redaction (NOT recommended)
 
 link flags:
   -base-url url      override base URL
@@ -107,6 +109,7 @@ func runServe(args []string) error {
 	hostname := fs.String("hostname", "shelley-share", "tsnet node name")
 	authKey := fs.String("ts-authkey", os.Getenv("TS_AUTHKEY"), "Tailscale auth key")
 	baseURL := fs.String("base-url", "", "override base URL written for 'link'")
+	noRedact := fs.Bool("no-redact", false, "disable best-effort secret redaction (NOT recommended)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -142,13 +145,20 @@ func runServe(args []string) error {
 		log.Printf("warning: could not write base_url: %v", err)
 	}
 
-	return server.Serve(ctx, server.Config{
+	cfg := server.Config{
 		Hostname: *hostname,
 		StateDir: tsState,
 		AuthKey:  *authKey,
 		Secret:   secret,
 		Store:    st,
-	})
+	}
+	if *noRedact {
+		log.Printf("shelley-share: redaction DISABLED via -no-redact")
+	} else {
+		cfg.Scrubber = redact.Default()
+		log.Printf("shelley-share: redaction enabled (trufflehog default detectors)")
+	}
+	return server.Serve(ctx, cfg)
 }
 
 func runLink(args []string) error {

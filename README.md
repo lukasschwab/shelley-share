@@ -20,6 +20,13 @@ them a link to.
   present on every exe.dev VM. No new long-lived secret needs to be created or
   backed up. If no SSH key exists, falls back to a random secret under the
   state directory.
+- **Best-effort secret redaction:** before rendering, message text and tool
+  input/output are run through [Trufflehog](https://github.com/trufflesecurity/trufflehog)'s
+  default detectors (~800 vendor-specific rules, e.g. AWS, GitHub, Stripe,
+  Slack, OpenAI). Detected secret literals are replaced with `〈redacted〉`.
+  Verification is disabled, so we never call out to third-party APIs. This is
+  best-effort, not a complete DLP — disable with `-no-redact` if you really
+  trust your audience.
 - **Transport safety:** the HTTP server is constructed inside
   `internal/server` and is fed *only* a listener returned by
   `tsnet.Server.Listen`. The package guards against accidentally being handed

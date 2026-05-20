@@ -12,6 +12,16 @@ import (
 	"github.com/lukasschwab/shelley-share/internal/store"
 )
 
+// Scrubber is the subset of redact.Redactor that Build needs.
+type Scrubber interface {
+	Scrub(string) string
+}
+
+// passthrough is used when redaction is disabled.
+type passthrough struct{}
+
+func (passthrough) Scrub(s string) string { return s }
+
 //go:embed templates/*.html
 var tmplFS embed.FS
 
@@ -58,8 +68,12 @@ type Page struct {
 	Blocks  []Block
 }
 
-// Build converts raw messages from the store into rendered blocks.
-func Build(c *store.Conversation, msgs []store.RawMessage) Page {
+// Build converts raw messages from the store into rendered blocks. If r is
+// nil, no redaction is performed.
+func Build(c *store.Conversation, msgs []store.RawMessage, r Scrubber) Page {
+	if r == nil {
+		r = passthrough{}
+	}
 	p := Page{
 		Title:   c.Title(),
 		ID:      c.ID,
@@ -80,30 +94,30 @@ func Build(c *store.Conversation, msgs []store.RawMessage) Page {
 				if m.Type == "user" {
 					role = "user"
 				}
-				p.Blocks = append(p.Blocks, Block{Role: role, Text: part.Text, Time: m.CreatedAt})
+				p.Blocks = append(p.Blocks, Block{Role: role, Text: r.Scrub(part.Text), Time: m.CreatedAt})
 			case store.PartThinking:
 				if strings.TrimSpace(part.Thinking) == "" {
 					continue
 				}
-				p.Blocks = append(p.Blocks, Block{Role: "thinking", Text: part.Thinking, Time: m.CreatedAt})
+				p.Blocks = append(p.Blocks, Block{Role: "thinking", Text: r.Scrub(part.Thinking), Time: m.CreatedAt})
 			case store.PartToolUse:
 				p.Blocks = append(p.Blocks, Block{
 					Role:      "tool",
 					ToolName:  part.ToolName,
-					ToolInput: prettyJSON(part.ToolInput),
+					ToolInput: r.Scrub(prettyJSON(part.ToolInput)),
 					Time:      m.CreatedAt,
 				})
 			case store.PartToolRes:
-				// Attach to the previous tool block, if any.
 				var text strings.Builder
-				for _, r := range part.ToolResult {
-					text.WriteString(r.Text)
+				for _, rp := range part.ToolResult {
+					text.WriteString(rp.Text)
 				}
+				out := r.Scrub(text.String())
 				if n := len(p.Blocks); n > 0 && p.Blocks[n-1].Role == "tool" {
-					p.Blocks[n-1].ToolOutput = text.String()
+					p.Blocks[n-1].ToolOutput = out
 					p.Blocks[n-1].ToolError = part.ToolError
 				} else {
-					p.Blocks = append(p.Blocks, Block{Role: "tool", ToolOutput: text.String(), ToolError: part.ToolError, Time: m.CreatedAt})
+					p.Blocks = append(p.Blocks, Block{Role: "tool", ToolOutput: out, ToolError: part.ToolError, Time: m.CreatedAt})
 				}
 			}
 		}

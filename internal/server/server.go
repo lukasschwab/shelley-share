@@ -28,6 +28,7 @@ type Config struct {
 	AuthKey  string // optional, used on first start
 	Secret   []byte // HMAC key for share tokens
 	Store    *store.Store
+	Scrubber render.Scrubber // optional; nil disables redaction
 }
 
 // Serve brings up the tsnet node and serves HTTP on it until ctx is cancelled.
@@ -123,7 +124,7 @@ func buildHandler(c Config) http.Handler {
 			http.Error(w, "db error", http.StatusInternalServerError)
 			return
 		}
-		page := render.Build(conv, msgs)
+		page := render.Build(conv, msgs, c.Scrubber)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "private, no-store")
 		_ = render.Conversation(w, page)
