@@ -37,11 +37,16 @@ them a link to.
 
 ```sh
 go install github.com/lukasschwab/shelley-share@latest
-
-# First run: provide a Tailscale auth key. The node registers as
-# "shelley-share" by default.
-TS_AUTHKEY=tskey-auth-... shelley-share serve
+shelley-share serve
 ```
+
+On the first run, tsnet has no node identity yet. It logs a
+`https://login.tailscale.com/a/…` URL; open it in a browser and sign in with
+your normal Tailscale account. Subsequent restarts reuse the persisted state
+in `~/.config/shelley-share/tsnet/` with no further interaction.
+
+If your tailnet admin lets you mint auth keys you can skip the browser step:
+`TS_AUTHKEY=tskey-auth-... shelley-share serve`.
 
 State (tsnet keys, the base URL hint, optional random secret) lives in
 `~/.config/shelley-share/`. The Shelley database is read from

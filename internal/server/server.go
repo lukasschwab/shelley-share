@@ -38,7 +38,7 @@ func Serve(ctx context.Context, c Config) error {
 		Hostname: c.Hostname,
 		Dir:      c.StateDir,
 		AuthKey:  c.AuthKey,
-		Logf:     func(string, ...any) {}, // quiet by default
+		Logf:     filteredTsnetLogf,
 	}
 	defer ts.Close()
 
@@ -130,6 +130,21 @@ func buildHandler(c Config) http.Handler {
 		_ = render.Conversation(w, page)
 	})
 	return logging(mux)
+}
+
+// filteredTsnetLogf forwards only the tsnet log lines we want to surface to
+// our own log/journal: the interactive-login URL, login completion, and node
+// authentication state. Everything else from tsnet is dropped.
+func filteredTsnetLogf(format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	switch {
+	case strings.Contains(msg, "To start this tsnet server"),
+		strings.Contains(msg, "login.tailscale.com/a/"),
+		strings.Contains(msg, "NeedsLogin"),
+		strings.Contains(msg, "NeedsMachineAuth"),
+		strings.Contains(msg, "control: authRoutine"):
+		log.Print("tsnet: ", msg)
+	}
 }
 
 func logging(h http.Handler) http.Handler {

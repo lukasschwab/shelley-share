@@ -58,11 +58,12 @@ shelley-share: listening on tsnet :80
 
 ### Common problems
 
-- **"tsnet up: … not authenticated"** on first start: needs an auth key.
-  Stop the service, run once interactively with
-  `TS_AUTHKEY=tskey-auth-... /home/exedev/go/bin/shelley-share serve` to
-  register, then `sudo systemctl start shelley-share`. Keys persist in
-  `~/.config/shelley-share/tsnet/`.
+- **Node needs auth on first start (or after state was wiped):** the
+  service logs a `https://login.tailscale.com/a/…` URL to the journal.
+  `journalctl -u shelley-share -f` to see it, open in a browser, sign in.
+  No auth key is needed; this also works for tailnets where the admin
+  disallows minting keys. Once the node is approved, state in
+  `~/.config/shelley-share/tsnet/` persists across restarts.
 - **Link 404s for the coworker:** they're not connected to the right
   tailnet, or the token was truncated in transit (no trailing characters
   after the final `.`).
